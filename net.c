@@ -26,6 +26,7 @@
 #include "host.h"
 #include "net.h"
 #include "packet.h"
+#include "switch.h"
 
 
 #define MAX_FILE_NAME 100

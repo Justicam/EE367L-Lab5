@@ -9,6 +9,7 @@
 #include "packet.h"
 #include "net.h"
 #include "host.h"
+#include "switch.h"
 
 
 void packet_send(struct net_port *port, struct packet *p)

@@ -14,6 +14,7 @@
 #include "net.h"
 #include "man.h"
 #include "host.h"
+#include "switch.h"
 #include "packet.h"
 
 #define MAX_FILE_BUFFER 1000
