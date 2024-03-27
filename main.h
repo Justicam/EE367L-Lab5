@@ -46,3 +46,15 @@ struct packet { /* struct for a packet */
 #define PKT_FILE_UPLOAD_END	3
 
 
+/***** EDITED BY JUSTIN CAMPOS *****/
+#define PKT_FILE_UPLOAD_MID 4
+
+enum JobType {
+    JOB_SEND_PKT_ALL_PORTS,
+    JOB_PING_SEND_REPLY,
+    JOB_PING_WAIT_FOR_REPLY,
+    JOB_FILE_UPLOAD_SEND,
+    JOB_FILE_UPLOAD_RECV_START,
+    JOB_FILE_UPLOAD_RECV_MID, //new job type
+    JOB_FILE_UPLOAD_RECV_END
+};

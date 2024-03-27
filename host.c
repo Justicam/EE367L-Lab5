@@ -14,7 +14,6 @@
 #include "net.h"
 #include "man.h"
 #include "host.h"
-#include "switch.h"
 #include "packet.h"
 
 #define MAX_FILE_BUFFER 1000
@@ -23,6 +22,11 @@
 #define MAX_FILE_NAME 100
 #define PKT_PAYLOAD_MAX 100
 #define TENMILLISEC 10000   /* 10 millisecond sleep */
+
+/***** EDITED BY JUSTIN CAMPOS *****/
+#define PKT_FILE_UPLOAD_MID 4
+#define JOB_FILE_UPLOAD_RECV_MID 5
+
 
 /* Types of packets */
 
@@ -383,6 +387,7 @@ while(1) {
 					free(new_job);
 					break;
 
+
 				/* 
 				 * The next two packet types
 				 * are for the upload file operation.
@@ -401,6 +406,14 @@ while(1) {
 						= JOB_FILE_UPLOAD_RECV_START;
 					job_q_add(&job_q, new_job);
 					break;
+
+
+/***** EDITED BY JUSTIN CAMPOS *****/
+				case (char) PKT_FILE_UPLOAD_MID:
+   			 new_job->type = JOB_FILE_UPLOAD_RECV_MID;
+   			 job_q_add(&job_q, new_job);
+    		break;
+
 
 				case (char) PKT_FILE_UPLOAD_END:
 					new_job->type 
@@ -499,76 +512,44 @@ while(1) {
 					dir, new_job->fname_upload);
 				name[n] = '\0';
 				fp = fopen(name, "r");
+				
+				
+/***** EDITED BY JUSTIN CAMPOS *****/
 				if (fp != NULL) {
+        int totalBytesRead = 0;
+        int bytesRead;
+        
+        /* while loop to read from the file and send in chunks of 100 bytes */
+        while ((bytesRead = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp)) > 0 && totalBytesRead < MAX_FILE_BUFFER) {
+            new_packet = (struct packet *)malloc(sizeof(struct packet));
+            new_packet->dst = new_job->file_upload_dst;
+            new_packet->src = (char) host_id;
+            
+            /* PKT_FILE_UPLOAD_MID for all but the last packet */
+            if (totalBytesRead + bytesRead < MAX_FILE_BUFFER) {
+                new_packet->type = PKT_FILE_UPLOAD_MID;
+            } else {
+                new_packet->type = PKT_FILE_UPLOAD_END;
+            }
+            
+            memcpy(new_packet->payload, string, bytesRead);
+            new_packet->length = bytesRead;
 
-				        /* 
-					 * Create first packet which
-					 * has the file name 
-					 */
-					new_packet = (struct packet *) 
-						malloc(sizeof(struct packet));
-					new_packet->dst 
-						= new_job->file_upload_dst;
-					new_packet->src = (char) host_id;
-					new_packet->type 
-						= PKT_FILE_UPLOAD_START;
-					for (i=0; 
-						new_job->fname_upload[i]!= '\0'; 
-						i++) {
-						new_packet->payload[i] = 
-							new_job->fname_upload[i];
-					}
-					new_packet->length = i;
+            new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+            new_job2->type = JOB_FILE_UPLOAD_MID;
+            new_job2->packet = new_packet;
+            job_q_add(&job_q, new_job2);
 
-					/* 
-					 * Create a job to send the packet
-					 * and put it in the job queue
-					 */
-					new_job2 = (struct host_job *)
-						malloc(sizeof(struct host_job));
-					new_job2->type = JOB_SEND_PKT_ALL_PORTS;
-					new_job2->packet = new_packet;
-					job_q_add(&job_q, new_job2);
-
-					/* 
-					 * Create the second packet which
-					 * has the file contents
-					 */
-					new_packet = (struct packet *) 
-						malloc(sizeof(struct packet));
-					new_packet->dst 
-						= new_job->file_upload_dst;
-					new_packet->src = (char) host_id;
-					new_packet->type = PKT_FILE_UPLOAD_END;
-
-
-					n = fread(string,sizeof(char),
-						PKT_PAYLOAD_MAX, fp);
-					fclose(fp);
-					string[n] = '\0';
-
-					for (i=0; i<n; i++) {
-						new_packet->payload[i] 
-							= string[i];
-					}
-
-					new_packet->length = n;
-
-					/*
-					 * Create a job to send the packet
-					 * and put the job in the job queue
-					 */
-
-					new_job2 = (struct host_job *)
-						malloc(sizeof(struct host_job));
-					new_job2->type 
-						= JOB_SEND_PKT_ALL_PORTS;
-					new_job2->packet = new_packet;
-					job_q_add(&job_q, new_job2);
-
-					free(new_job);
-				}
-				else {  
+            totalBytesRead += bytesRead;
+            
+            if (new_packet->type == PKT_FILE_UPLOAD_END) {
+                break; //exit if this was the last packet
+            }
+        }
+        fclose(fp); 
+        free(new_job); 
+        
+				} else {  
 					/* Didn't open file */
 				}
 			}
@@ -592,6 +573,19 @@ while(1) {
 			free(new_job->packet);
 			free(new_job);
 			break;
+
+
+/***** EDITED BY JUSTIN CAMPOS *****/
+case JOB_FILE_UPLOAD_RECV_MID:
+    file_buf_add(&f_buf_upload, 
+    new_job->packet->payload, 
+    new_job->packet->length);
+
+    free(new_job->packet); 
+    free(new_job);         
+    break;
+
+
 
 		case JOB_FILE_UPLOAD_RECV_END:
 
