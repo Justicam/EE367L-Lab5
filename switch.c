@@ -72,28 +72,27 @@ for (int i=0; i<MAX_FWD_LENGTH; i++)
 
 
 /*
- * Create an array node_port[ ] to store the network link ports
- * at the switch.  The number of ports is node_port_num
+ * Setup network ports for switch
  */
 node_port_list = net_get_port_list(switch_id);
 
-	/*  Count the number of network link ports */
+	//count number of network link ports
 node_port_num = 0;
 for (p=node_port_list; p!=NULL; p=p->next) {
 	node_port_num++;
 }
-	/* Allocate memory space for the array */
+	//allocating memory for the array
 node_port = (struct net_port **)
 	malloc(node_port_num*sizeof(struct net_port *));
 
-	/* Load ports into the array */
+	//Load the ports into the array
 p = node_port_list;
 for (k = 0; k < node_port_num; k++) {
 	node_port[k] = p;
 	p = p->next;
 }
 
-/* Initialize the job queue */
+//initialize the job queue
 job_q_init(&job_q);
 
 int flag;
@@ -101,11 +100,7 @@ int flag;
 //Main Loop for switch op
 while(1) {
 
-	/*
-	 * Get packets from incoming links and send them back out
-  	 * Put jobs in job queue
- 	 */
-
+	//Flag to check if any packets were recieved
 	flag = 0;
 
 	//process incoming packets
@@ -121,12 +116,13 @@ while(1) {
 			new_job->in_port_index = k;
 			new_job->packet = in_packet;
 
-			/*printf("\ts%d: get on p%d: h%d ~ h%d\n",
-				switch_id, k, new_job->packet->src, new_job->packet->dst);*/
+			//DEBUG
+			//printf("\t=-=-=Debug=-=-= \nSwitch%d: packet%d: host%d ~ host%d\n",
+			//	switch_id, k, new_job->packet->src, new_job->packet->dst);
 
 			job_q_add(&job_q, new_job);
 
-			flag = 1;
+			flag = 1; //packets are recieved so set flag
 		}
 		else {
 			//no packets recieved
@@ -134,20 +130,12 @@ while(1) {
 		}
 	}
 
-	
-	/*
- 	 * Execute one job in the job queue
- 	 */
-
 	flag = 0;
-
+	//Process one job from job queue
 	if (job_q_num(&job_q) > 0) {
-
 		
-		/* Get a new job from the job queue */
+		// Get a new job from the job queue 
 		new_job = job_q_remove(&job_q);
-
-		
 
 		int vport = -1;
 		for (i=0; i<MAX_FWD_LENGTH; i++)
@@ -171,11 +159,11 @@ while(1) {
 					fwd_table[i].port = new_job->in_port_index;
 					vport = fwd_table[i].port;
 					
-					break;
+					break; //entry is added
 				}
 			}
 		}
-
+		//attempting to find fwd prt
 		vport = -1;
 		for (i=0; i<MAX_FWD_LENGTH; i++)
 		{
@@ -184,17 +172,19 @@ while(1) {
 			{
 				vport = fwd_table[i].port;
 				
-				break;
+				break; //found a valid match
 			}
 		}
-
+		//if unknown then fwd packet to port/broadcast
 		if (vport > -1)
 		{
+			//forward packet to specific port
 			packet_send(node_port[vport], new_job->packet);
 			
 		}
 		else
 		{
+			//broadcast packet to all ports except the incoming one
 			for (k=0; k<node_port_num; k++)
 			{
 				if (k != new_job->in_port_index) {
@@ -204,11 +194,12 @@ while(1) {
 			}
 		}
 
+		//Free the processed job and packet
 		free(new_job->packet);
 		free(new_job);
 	}
 
-	/* The switch goes to sleep for 10 ms */
+	/* 10 ms sleep duration */
 	usleep(TENMILLISEC);
 
 } /* End of while loop */
