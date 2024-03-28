@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h> // PATH_MAX
 
 #include "main.h"
 #include "net.h"
@@ -582,6 +583,7 @@ while(1) {
                 file_buf_init(&f_buf_download);
 
                 // Transfer the file name in the packet payload to the file buffer
+                int file_name_length = new_job->packet->length;
                 file_buf_put_name(&f_buf_download, new_job->packet->payload, new_job->packet->length);
 
                 free(new_job->packet);
@@ -590,7 +592,12 @@ while(1) {
 
             case JOB_FILE_DOWNLOAD_RECV_MID:
                 // Add the received data to the file buffer
-                file_buf_add(&f_buf_download, new_job->packet->payload, new_job->packet->length);
+                int bytes_added = file_buf_add(&f_buf_download, new_job->packet->payload, new_job->packet->length);
+                if (bytes_added != new_job->packet->length) {
+                    // Error: File buffer is full
+                    printf("Error: File buffer is full during download\n");
+
+                }
 
                 free(new_job->packet);
                 free(new_job);
@@ -605,17 +612,22 @@ while(1) {
 
                 if (dir_valid == 1) {
                     // Get the file name from the file buffer and open the file
-                    file_buf_get_name(&f_buf_download, string);
-                    n = sprintf(name, "./%s/%s", dir, string);
-                    name[n] = '\0';
-                    fp = fopen(name, "w");
+                    char file_name[MAX_FILE_NAME];
+                    file_buf_get_name(&f_buf_download, file_name);
+                    char full_path[PATH_MAX];
+                    snprintf(full_path, sizeof(full_path), "./%s/%s", dir, file_name);
 
-                    if (fp != NULL) {
+                    FILE *fp = fopen(full_path, "wb");
+                    if (fp == NULL) {
+                        // Error: Unable to create or open the file
+                        printf("Error: Unable to create or open the file %s\n", full_path);
+
+                    } else {
                         // Write the contents of the file buffer to the file
                         while (f_buf_download.occ > 0) {
-                            n = file_buf_remove(&f_buf_download, string, PKT_PAYLOAD_MAX);
-                            string[n] = '\0';
-                            n = fwrite(string, sizeof(char), n, fp);
+                            char buffer[PKT_PAYLOAD_MAX];
+                            int bytes_read = file_buf_remove(&f_buf_download, buffer, sizeof(buffer));
+                            fwrite(buffer, sizeof(char), bytes_read, fp);
                         }
 
                         fclose(fp);
