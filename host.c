@@ -403,19 +403,33 @@ while(1) {
 					free(new_job);
 					break;
 
+                case (char) PKT_FILE_DOWNLOAD_START:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_START;
+                    job_q_add(&job_q, new_job);
+                    break;
 
-				/* 
-				 * The next two packet types
-				 * are for the upload file operation.
-				 *
-				 * The first type is the start packet
-				 * which includes the file name in
-				 * the payload.
-				 *
-				 * The second type is the end packet
-				 * which carries the content of the file
-				 * in its payload
-				 */
+                case (char) PKT_FILE_DOWNLOAD_MID:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_MID;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                case (char) PKT_FILE_DOWNLOAD_END:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_END;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                    /*
+                     * The next two packet types
+                     * are for the upload file operation.
+                     *
+                     * The first type is the start packet
+                     * which includes the file name in
+                     * the payload.
+                     *
+                     * The second type is the end packet
+                     * which carries the content of the file
+                     * in its payload
+                     */
 		
 				case (char) PKT_FILE_UPLOAD_START:
 					new_job->type 
