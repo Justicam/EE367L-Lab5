@@ -116,7 +116,27 @@ while(1) {
 			new_job->in_port_index = k;
 			new_job->packet = in_packet;
 
-			//DEBUG
+            switch(in_packet->type) {
+
+                case (char) PKT_FILE_DOWNLOAD_START:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_START;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                case (char) PKT_FILE_DOWNLOAD_MID:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_MID;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                case (char) PKT_FILE_DOWNLOAD_END:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_END;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+            }
+
+
+            //DEBUG
 			//printf("\t=-=-=Debug=-=-= \nSwitch%d: packet%d: host%d ~ host%d\n",
 			//	switch_id, k, new_job->packet->src, new_job->packet->dst);
 

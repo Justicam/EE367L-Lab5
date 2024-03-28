@@ -3,6 +3,10 @@
 #define PAYLOAD_MAX 100
 #define STRING_MAX 100
 #define NAME_LENGTH 100
+#define PKT_FILE_DOWNLOAD_START   5
+#define PKT_FILE_DOWNLOAD_MID     6
+#define PKT_FILE_DOWNLOAD_END     7
+
 
 enum NetNodeType { /* Types of network nodes */
 	HOST,
