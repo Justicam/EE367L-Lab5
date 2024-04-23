@@ -240,6 +240,8 @@ int dst;
 char name[MAX_FILE_NAME];
 char string[PKT_PAYLOAD_MAX+1]; 
 
+char domain_name[50];
+
 FILE *fp;
 
 struct packet *in_packet; /* Incoming packet */
@@ -364,6 +366,9 @@ while(1) {
                 job_q_add(&job_q, new_job);
                 break;
 
+			case 'n': //Use the DNS server
+				sscanf(man_msg, "%s", domain_name);
+				
             default:
 			;
 		}

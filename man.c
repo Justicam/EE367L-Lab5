@@ -48,6 +48,7 @@ while(1) {
 	printf("   (p) Ping a host\n");
 	printf("   (u) Upload a file to a host\n");
 	printf("   (d) Download a file from a host\n");
+	printf("   (n) DNS\n");
 	printf("   (q) Quit\n");
 	printf("   Enter Command: ");
 	do {
@@ -64,6 +65,7 @@ while(1) {
 		case 'p':
 		case 'u':
 		case 'd':
+		case 'n':
 		case 'q': return cmd;
 		default: 
 			printf("Invalid: you entered %c\n\n", cmd);
@@ -236,6 +238,36 @@ int file_download(struct man_port_at_man *curr_host)
     return 0;
 }
 
+//Command host to interact with DNS server
+int dns(struct man_port_at_man *curr_host)
+{
+	int n;
+	char cmd;
+	char msg[NAME_LENGTH];
+
+	printf("\nSelect domain name service operation:\n");
+	printf("	(r) Register domain name");
+	printf("	(i) Request IP of a domain name\n");
+
+	scanf("%c", cmd);
+
+	switch(cmd) {
+		case 'r':
+			char domain_name[50];
+			printf("\nEnter domain name to register: ");
+			scanf("%s", domain_name);
+
+			n = sprintf(msg, "%s", domain_name);
+			write(curr_host->send_fd, msg, n);
+			usleep(TENMILLISEC);
+			break;
+		//case 'i':
+
+		default: 
+			break;
+	}
+}
+
 
 
 /***************************** 
@@ -282,6 +314,9 @@ while(1) {
 		case 'd': /* Download a file from a host */
             file_download(curr_host);
             break;
+		case 'n': /* Use the DNS server */
+			dns(curr_host);
+			break;
 		case 'q':  /* Quit */
 			return;
 		default: 
