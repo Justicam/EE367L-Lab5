@@ -130,8 +130,6 @@ for (k = 0; k < node_port_num; k++) {
                 localRootDist = receivedRootDist + 1;
                 localParent = k;
             }
-            printf("Updated State of Switch %d: RootID = %u, RootDist = %d, Parent = %d\n", //debug
-                   switch_id, localRootID, localRootDist, localParent);
         }
 
     }

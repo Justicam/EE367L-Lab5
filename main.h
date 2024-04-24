@@ -34,12 +34,17 @@ struct net_port { /* port to communicate with another node */
 
 /* Packet sent between nodes  */
 
-struct packet { /* struct for a packet */
-	char src;
-	char dst;
-	char type;
-	int length;
-	char payload[PAYLOAD_MAX];
+struct packet {
+	
+    int packetRootID;
+    int packetRootDist;
+    char packetSenderType;
+    char packetSenderChild;
+    char src;        // Source of the packet
+    char dst;        // Destination of the packet
+    char type;       // Type of the packet
+    int length;      // Length of the packet's payload
+    char payload[PAYLOAD_MAX];
 };
 
 /* Types of packets */

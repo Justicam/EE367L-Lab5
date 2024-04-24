@@ -67,5 +67,12 @@ man_main();
 kill(0, SIGKILL); /* Kill all processes */
 }
 
+struct packet {
+    // ...
+    int packetRootID;
+    int packetRootDist;
+    char packetSenderType;
+    char packetSenderChild;
+};
 
 

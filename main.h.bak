@@ -3,6 +3,10 @@
 #define PAYLOAD_MAX 100
 #define STRING_MAX 100
 #define NAME_LENGTH 100
+#define PKT_FILE_DOWNLOAD_START   5
+#define PKT_FILE_DOWNLOAD_MID     6
+#define PKT_FILE_DOWNLOAD_END     7
+
 
 enum NetNodeType { /* Types of network nodes */
 	HOST,
@@ -30,12 +34,17 @@ struct net_port { /* port to communicate with another node */
 
 /* Packet sent between nodes  */
 
-struct packet { /* struct for a packet */
-	char src;
-	char dst;
-	char type;
-	int length;
-	char payload[PAYLOAD_MAX];
+struct packet {
+    // ...
+    int packetRootID;
+    int packetRootDist;
+    char packetSenderType;
+    char packetSenderChild;
+    char src;        // Source of the packet
+    char dst;        // Destination of the packet
+    char type;       // Type of the packet
+    int length;      // Length of the packet's payload
+    char payload[PAYLOAD_MAX];
 };
 
 /* Types of packets */
@@ -49,12 +58,3 @@ struct packet { /* struct for a packet */
 /***** EDITED BY JUSTIN CAMPOS *****/
 #define PKT_FILE_UPLOAD_MID 4
 
-enum JobType {
-    JOB_SEND_PKT_ALL_PORTS,
-    JOB_PING_SEND_REPLY,
-    JOB_PING_WAIT_FOR_REPLY,
-    JOB_FILE_UPLOAD_SEND,
-    JOB_FILE_UPLOAD_RECV_START,
-    JOB_FILE_UPLOAD_RECV_MID, //new job type
-    JOB_FILE_UPLOAD_RECV_END
-};
