@@ -29,6 +29,24 @@
 #define PKT_FILE_UPLOAD_MID 4
 //#define JOB_FILE_UPLOAD_RECV_MID 5
 
+char* read_file_to_string(const char* filename);
+
+char* read_file_to_string(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char* buffer = (char*)malloc(length + 1);
+    if (buffer) {
+        fread(buffer, 1, length, file);
+        buffer[length] = '\0'; // Null-terminate the string
+    }
+    fclose(file);
+    return buffer;
+}
 
 /* Types of packets */
 
@@ -515,26 +533,36 @@ while(1) {
 			break;
 
 		case JOB_PING_WAIT_FOR_REPLY:
-			/* Wait for a ping reply packet */
+    /* Wait for a ping reply packet */
+if (ping_reply_received == 1) {
+    // Log the attempt to read the file
+    printf("Attempting to read switch.config\n");
 
-			if (ping_reply_received == 1) {
-				n = sprintf(man_reply_msg, "Ping acked!"); 
-				man_reply_msg[n] = '\0';
-				write(man_port->send_fd, man_reply_msg, n+1);
-				free(new_job);
-			}
-			else if (new_job->ping_timer > 1) {
-				new_job->ping_timer--;
-				job_q_add(&job_q, new_job);
-			}
-			else { /* Time out */
-				n = sprintf(man_reply_msg, "Ping time out!"); 
-				man_reply_msg[n] = '\0';
-				write(man_port->send_fd, man_reply_msg, n+1);
-				free(new_job);
-			}
+    char* config_contents = read_file_to_string("./switch.config");
 
-			break;
+    // Check and log whether the file read was successful
+    if (config_contents != NULL) {
+        printf("File read successfully. File contents:\n%s\n", config_contents);
+        n = sprintf(man_reply_msg, "Ping acked! Switch config:\n%s", config_contents);
+        free(config_contents);
+    } else {
+        // Log the failure to read the file
+        printf("Failed to read file or file is empty\n");
+        n = sprintf(man_reply_msg, "Ping acked! (switch.config not found)");
+    }
+    man_reply_msg[n] = '\0';
+    write(man_port->send_fd, man_reply_msg, n+1);
+    free(new_job);
+} else if (new_job->ping_timer > 1) {
+    new_job->ping_timer--;
+    job_q_add(&job_q, new_job);
+} else { /* Time out */
+    n = sprintf(man_reply_msg, "Ping time out!");
+    man_reply_msg[n] = '\0';
+    write(man_port->send_fd, man_reply_msg, n+1);
+    free(new_job);
+}
+    break;
 
             /** Wrriten by Lyon.S **/
             case JOB_FILE_DOWNLOAD_SEND:

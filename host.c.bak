@@ -9,12 +9,14 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h> // PATH_MAX
 
 #include "main.h"
 #include "net.h"
 #include "man.h"
 #include "host.h"
 #include "packet.h"
+#include "switch.h"
 
 #define MAX_FILE_BUFFER 1000
 #define MAX_MSG_LENGTH 100
@@ -25,8 +27,26 @@
 
 /***** EDITED BY JUSTIN CAMPOS *****/
 #define PKT_FILE_UPLOAD_MID 4
-#define JOB_FILE_UPLOAD_RECV_MID 5
+//#define JOB_FILE_UPLOAD_RECV_MID 5
 
+char* read_file_to_string(const char* filename);
+
+char* read_file_to_string(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char* buffer = (char*)malloc(length + 1);
+    if (buffer) {
+        fread(buffer, 1, length, file);
+        buffer[length] = '\0'; // Null-terminate the string
+    }
+    fclose(file);
+    return buffer;
+}
 
 /* Types of packets */
 
@@ -238,6 +258,8 @@ int dst;
 char name[MAX_FILE_NAME];
 char string[PKT_PAYLOAD_MAX+1]; 
 
+char domain_name[50];
+
 FILE *fp;
 
 struct packet *in_packet; /* Incoming packet */
@@ -348,7 +370,24 @@ while(1) {
 				job_q_add(&job_q, new_job);
 					
 				break;
-			default:
+            /** Wrriten by Lyon.S **/
+            case 'd':
+                sscanf(man_msg, "%d %s", &dst, name);
+                new_job = (struct host_job *)
+                        malloc(sizeof(struct host_job));
+                new_job->type = JOB_FILE_DOWNLOAD_SEND;
+                new_job->file_upload_dst  = dst;
+                for (i = 0; name[i] != '\0'; i++) {
+                    new_job->fname_download[i] = name[i];
+                }
+                new_job->fname_download[i] = '\0';
+                job_q_add(&job_q, new_job);
+                break;
+
+			case 'n': //Use the DNS server
+				sscanf(man_msg, "%s", domain_name);
+				
+            default:
 			;
 		}
 	}
@@ -376,7 +415,8 @@ while(1) {
 				 * The next two packet types are 
 				 * the ping request and ping reply
 				 */
-				case (char) PKT_PING_REQ: 
+
+                case (char) PKT_PING_REQ:
 					new_job->type = JOB_PING_SEND_REPLY;
 					job_q_add(&job_q, new_job);
 					break;
@@ -387,19 +427,33 @@ while(1) {
 					free(new_job);
 					break;
 
+                case (char) PKT_FILE_DOWNLOAD_START:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_START;
+                    job_q_add(&job_q, new_job);
+                    break;
 
-				/* 
-				 * The next two packet types
-				 * are for the upload file operation.
-				 *
-				 * The first type is the start packet
-				 * which includes the file name in
-				 * the payload.
-				 *
-				 * The second type is the end packet
-				 * which carries the content of the file
-				 * in its payload
-				 */
+                case (char) PKT_FILE_DOWNLOAD_MID:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_MID;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                case (char) PKT_FILE_DOWNLOAD_END:
+                    new_job->type = JOB_FILE_DOWNLOAD_RECV_END;
+                    job_q_add(&job_q, new_job);
+                    break;
+
+                    /*
+                     * The next two packet types
+                     * are for the upload file operation.
+                     *
+                     * The first type is the start packet
+                     * which includes the file name in
+                     * the payload.
+                     *
+                     * The second type is the end packet
+                     * which carries the content of the file
+                     * in its payload
+                     */
 		
 				case (char) PKT_FILE_UPLOAD_START:
 					new_job->type 
@@ -479,29 +533,144 @@ while(1) {
 			break;
 
 		case JOB_PING_WAIT_FOR_REPLY:
-			/* Wait for a ping reply packet */
+    /* Wait for a ping reply packet */
+if (ping_reply_received == 1) {
+    // Log the attempt to read the file
+    printf("Attempting to read switch.config\n");
 
-			if (ping_reply_received == 1) {
-				n = sprintf(man_reply_msg, "Ping acked!"); 
-				man_reply_msg[n] = '\0';
-				write(man_port->send_fd, man_reply_msg, n+1);
-				free(new_job);
-			}
-			else if (new_job->ping_timer > 1) {
-				new_job->ping_timer--;
-				job_q_add(&job_q, new_job);
-			}
-			else { /* Time out */
-				n = sprintf(man_reply_msg, "Ping time out!"); 
-				man_reply_msg[n] = '\0';
-				write(man_port->send_fd, man_reply_msg, n+1);
-				free(new_job);
-			}
+    char* config_contents = read_file_to_string("./switch.config");
 
-			break;	
+    // Check and log whether the file read was successful
+    if (config_contents != NULL) {
+        printf("File read successfully. File contents:\n%s\n", config_contents);
+        n = sprintf(man_reply_msg, "Ping acked! Switch config:\n%s", config_contents);
+        free(config_contents);
+    } else {
+        // Log the failure to read the file
+        printf("Failed to read file or file is empty\n");
+        n = sprintf(man_reply_msg, "Ping acked! (switch.config not found)");
+    }
+    man_reply_msg[n] = '\0';
+    write(man_port->send_fd, man_reply_msg, n+1);
+    free(new_job);
+} else if (new_job->ping_timer > 1) {
+    new_job->ping_timer--;
+    job_q_add(&job_q, new_job);
+} else { /* Time out */
+    n = sprintf(man_reply_msg, "Ping time out!");
+    man_reply_msg[n] = '\0';
+    write(man_port->send_fd, man_reply_msg, n+1);
+    free(new_job);
+}
+
+    break;
+
+            /** Wrriten by Lyon.S **/
+            case JOB_FILE_DOWNLOAD_SEND:
+                // Open the file
+                if (dir_valid == 1) {
+                    n = sprintf(name, "./%s/%s", dir, new_job->fname_download);
+                    name[n] = '\0';
+                    fp = fopen(name, "r");
+
+                    if (fp != NULL) {
+                        int totalBytesRead = 0;
+                        int bytesRead;
+
+                        // Read from the file and send in chunks of 100 bytes
+                        while ((bytesRead = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp)) > 0 && totalBytesRead < MAX_FILE_BUFFER) {
+                            new_packet = (struct packet *)malloc(sizeof(struct packet));
+                            new_packet->dst = new_job->file_upload_dst;
+                            new_packet->src = (char)host_id;
+
+                            // PKT_FILE_DOWNLOAD_MID for all but the last packet
+                            if (totalBytesRead + bytesRead < MAX_FILE_BUFFER) {
+                                new_packet->type = PKT_FILE_DOWNLOAD_MID;
+                            } else {
+                                new_packet->type = PKT_FILE_DOWNLOAD_END;
+                            }
+
+                            memcpy(new_packet->payload, string, bytesRead);
+                            new_packet->length = bytesRead;
+
+                            new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+                            new_job2->type = JOB_FILE_DOWNLOAD_SEND;
+                            new_job2->packet = new_packet;
+                            job_q_add(&job_q, new_job2);
+
+                            totalBytesRead += bytesRead;
+
+                            if (new_packet->type == PKT_FILE_DOWNLOAD_END) {
+                                break; // Exit if this was the last packet
+                            }
+                        }
+                        fclose(fp);
+                        free(new_job);
+                    } else {
+                        // Couldn't open the file
+                    }
+                }
+                break;
+
+            case JOB_FILE_DOWNLOAD_RECV_START:
+                // Initialize the file buffer to store the incoming file
+                file_buf_init(&f_buf_download);
+
+                // Transfer the file name in the packet payload to the file buffer
+                int file_name_length = new_job->packet->length;
+                file_buf_put_name(&f_buf_download, new_job->packet->payload, new_job->packet->length);
+
+                free(new_job->packet);
+                free(new_job);
+                break;
+
+            case JOB_FILE_DOWNLOAD_RECV_MID:
+                // Add the received data to the file buffer
+                int bytes_added = file_buf_add(&f_buf_download, new_job->packet->payload, new_job->packet->length);
+                if (bytes_added != new_job->packet->length) {
+                    // Error: File buffer is full
+                    printf("Error: File buffer is full during download\n");
+
+                }
+
+                free(new_job->packet);
+                free(new_job);
+                break;
+
+            case JOB_FILE_DOWNLOAD_RECV_END:
+                // Add the received data to the file buffer
+                file_buf_add(&f_buf_download, new_job->packet->payload, new_job->packet->length);
+
+                free(new_job->packet);
+                free(new_job);
+
+                if (dir_valid == 1) {
+                    // Get the file name from the file buffer and open the file
+                    char file_name[MAX_FILE_NAME];
+                    file_buf_get_name(&f_buf_download, file_name);
+                    char full_path[PATH_MAX];
+                    snprintf(full_path, sizeof(full_path), "./%s/%s", dir, file_name);
+
+                    FILE *fp = fopen(full_path, "wb");
+                    if (fp == NULL) {
+                        // Error: Unable to create or open the file
+                        printf("Error: Unable to create or open the file %s\n", full_path);
+
+                    } else {
+                        // Write the contents of the file buffer to the file
+                        while (f_buf_download.occ > 0) {
+                            char buffer[PKT_PAYLOAD_MAX];
+                            int bytes_read = file_buf_remove(&f_buf_download, buffer, sizeof(buffer));
+                            fwrite(buffer, sizeof(char), bytes_read, fp);
+                        }
+
+                        fclose(fp);
+                    }
+                }
+                break;
 
 
-		/* The next three jobs deal with uploading a file */
+                /* The next three jobs deal with uploading a file */
 
 			/* This job is for the sending host */
 		case JOB_FILE_UPLOAD_SEND:
