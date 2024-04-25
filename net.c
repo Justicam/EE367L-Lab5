@@ -20,6 +20,7 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "main.h"
 #include "man.h"
@@ -32,8 +33,6 @@
 #define MAX_FILE_NAME 100
 #define PIPE_READ 0
 #define PIPE_WRITE 1
-
-enum bool {FALSE, TRUE};
 
 /* 
  * Struct used to store a link. It is used when the 
@@ -50,7 +49,7 @@ struct net_link {
 /* 
  * The following are private global variables to this file net.c
  */
-static enum bool g_initialized = FALSE; /* Network initialized? */  
+static bool g_initialized = false; /* Network initialized? */  
 	/* The network is initialized only once */
 
 /* 
@@ -257,13 +256,18 @@ while (p_m != NULL) {
 /* Initialize network ports and links */
 int net_init()
 {
-if (g_initialized == TRUE) { /* Check if the network is already initialized */
+if (g_initialized) { /* Check if the network is already initialized */
 	printf("Network already loaded\n");
 	return(0);
-}		
+}
+		
 else if (load_net_data_file()==0) { /* Load network configuration file */
 	return(0);
 }
+g_initialized = true;
+
+return 0;
+
 /* 
  * Create a linked list of node information at g_node_list 
  */
@@ -546,6 +550,60 @@ for (i=0; i<g_net_link_num; i++) {
 
 fclose(fp);
 return(1);
+}
+
+// Union-Find structure to support cycle detection
+struct subset {
+    int parent;
+    int rank;
+};
+
+// Find function with path compression
+int find(struct subset subsets[], int i) {
+    if (subsets[i].parent != i)
+        subsets[i].parent = find(subsets, subsets[i].parent);
+    return subsets[i].parent;
+}
+
+// Union function using rank
+void unionSet(struct subset subsets[], int x, int y) {
+    int xroot = find(subsets, x);
+    int yroot = find(subsets, y);
+
+    if (subsets[xroot].rank < subsets[yroot].rank)
+        subsets[xroot].parent = yroot;
+    else if (subsets[xroot].rank > subsets[yroot].rank)
+        subsets[yroot].parent = xroot;
+    else {
+        subsets[yroot].parent = xroot;
+        subsets[xroot].rank++;
+    }
+}
+
+bool has_cycle(struct net_link links[], int n) { 
+    struct subset *subsets = malloc(n * sizeof(struct subset));
+    if (subsets == NULL) {
+        return true;  // or handle the memory allocation failure appropriately
+    }
+
+    for (int i = 0; i < n; i++) {
+        subsets[i].parent = i;
+        subsets[i].rank = 0;
+    }
+
+    for (int i = 0; i < n; i++) {
+        int x = find(subsets, links[i].pipe_node0);
+        int y = find(subsets, links[i].pipe_node1);
+
+        if (x == y) {
+            free(subsets);
+            return true;
+        }
+
+        unionSet(subsets, x, y);
+    }
+    free(subsets);
+    return false;
 }
 
 

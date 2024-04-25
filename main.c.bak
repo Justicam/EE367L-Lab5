@@ -31,6 +31,17 @@ struct net_node *p_node;
 net_init();  
 node_list = net_get_node_list(); /* Returns the list of nodes */
 
+    /*
+     * Check for cycles in the network configuration.
+     */
+    net_init();
+    if (has_cycle()) {
+        printf("Cycle detected in the network configuration. Exiting.\n");
+        exit(EXIT_FAILURE);  // Exit if a cycle is detected
+    } else {
+        printf("No cycle detected in the network configuration.\n");
+    }
+
 
 /* Create nodes, which are child processwa */ 
 
@@ -67,12 +78,5 @@ man_main();
 kill(0, SIGKILL); /* Kill all processes */
 }
 
-struct packet {
-    // ...
-    int packetRootID;
-    int packetRootDist;
-    char packetSenderType;
-    char packetSenderChild;
-};
 
 
